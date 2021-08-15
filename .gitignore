@@ -1,4 +1,6 @@
 # Ignore binary files
 berCLI
 # Ignore .env configuration
-env
+.env
+# Ignore .golangci.yml
+.golangci.yml
