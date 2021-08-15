@@ -14,7 +14,7 @@ type Config struct {
 	berCLI berCLIConfig
 }
 
-// New returns a new Config struct
+// New returns a new Config struct.
 func NewConfig() *Config {
 	return &Config{
 		berCLI: berCLIConfig{
@@ -25,7 +25,7 @@ func NewConfig() *Config {
 	}
 }
 
-// getEnv reads an environment or return default value
+// getEnv reads an environment or return default value.
 func getEnv(key string, defaultValue string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
