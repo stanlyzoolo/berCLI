@@ -3,4 +3,4 @@ berCLI
 # Ignore .env configuration
 .env
 # Ignore .golangci.yml
-.golangci.yml
+.golangci.yml 
