@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unicode"
 
 	"github.com/joho/godotenv"
@@ -180,7 +182,7 @@ func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string,
 				zap.String("url", request),
 				zap.Error(err))
 		}
-
+		time.Sleep(time.Millisecond * time.Duration(1000+rand.Intn(2000)))
 		logger.Info("generating survey",
 			zap.Int("survey number", id),
 			zap.String("survey", job),
