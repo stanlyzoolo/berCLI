@@ -39,7 +39,7 @@ func main() {
 
 	defer logger.Sync() //nolint
 
-	logger.Info("Let`s start calculate expressions!")
+	logger.Info("Let`s start calculate expressions!\n")
 
 	// Set new config form .env file
 	config := New()
@@ -67,15 +67,6 @@ func main() {
 		go d.surveyWorker(d.jobs, d.results, url, i, wg)
 	}
 
-	// Здесь не могу вычитать так, чтобы shutdown был graceful!
-	// for i := 0; i < workerPoolSize; i++ {
-	// 	result := <-d.results
-	// 	logger.Info("reading results channel",
-	// 		zap.Int("worker number", i),
-	// 		zap.Int("calculated result", result),
-	// 	)
-	// }
-
 	// handle input signals (interrupt or terminate)
 	termChan := make(chan os.Signal, 1)
 	signal.Notify(termChan, syscall.SIGINT, syscall.SIGTERM)
@@ -83,10 +74,10 @@ func main() {
 	<-termChan
 
 	// shutdown
-	logger.Info("Shutdown signal received from user!")
+	logger.Info("*************************Shutdown signal received from user!****************************************\n")
 	cancellation()
 	wg.Wait()
-	logger.Info("All workers done their job, shutting down! Bye!")
+	logger.Info("*************************All workers done their job, shutting down! Bye!****************************\n")
 }
 
 // encodeMathOperators process math operators to utf-8 format.
@@ -189,6 +180,7 @@ func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string,
 		logger.Info("generating survey",
 			zap.Int("survey number", id),
 			zap.String("survey", job),
+			zap.Int("survey result", rd.Result),
 		)
 		results <- rd.Result
 	}
@@ -204,22 +196,12 @@ func (d dispatcher) startDispatcher(ctx context.Context) {
 		case survey := <-d.surveys:
 			d.jobs <- survey
 		case <-ctx.Done():
-			logger.Info("Dispatcher received cancellation signal, closing jobs and surveys channels")
-
-			close(d.jobs)
+			logger.Info("*************************Dispatcher is closing jobs and surveys channels!***************************\n")
 			close(d.surveys)
 
-			logger.Info("Dispatcher closed jobs channel")
+			close(d.jobs)
 
 			return
 		}
 	}
 }
-
-// 1. функция опроса калькулятора выражений (используя генератор выражений),
-// с вычислением результата, с записью результата в логгер.
-// 2. запуск одной и той функции в разном количестве горутин. Количество горутин - по флагу командной строки.
-// 3. использовать шаблон worker pool (50/50).
-// 4. graceful shutdown!
-
-// каналы, контексты и т.д.
