@@ -2,26 +2,26 @@ package main
 
 import (
 	"os"
+	"strconv"
 )
 
 type berCLIConfig struct {
-	url              string
-	expressionLength string
-	workerPoolSize   string
+	url string
 }
 
 type Config struct {
-	berCLI berCLIConfig
+	berCLI           berCLIConfig
+	expressionLength int
+	workerPoolSize   int
 }
 
 // New returns a new Config struct.
-func NewConfig() *Config {
+func New() *Config {
 	return &Config{
 		berCLI: berCLIConfig{
-			url:              getEnv("URL", "http://localhost:8080/?expr="),
-			expressionLength: getEnv("ExpressionLength", "10"),
-			workerPoolSize:   getEnv("WorkerPoolSize", "20"),
-		},
+			url: getEnv("URL", "http://localhost:8080/?expr=")},
+		expressionLength: getEnvAsInt("ExpressionLength", 10),
+		workerPoolSize:   getEnvAsInt("WorkerPoolSize", 20),
 	}
 }
 
@@ -32,4 +32,14 @@ func getEnv(key string, defaultValue string) string {
 	}
 
 	return defaultValue
+}
+
+// getEnvAsInt reads an environment variable into integer or return a default value.
+func getEnvAsInt(name string, defaultVal int) int {
+	valueStr := getEnv(name, "")
+	if value, err := strconv.Atoi(valueStr); err == nil {
+		return value
+	}
+
+	return defaultVal
 }

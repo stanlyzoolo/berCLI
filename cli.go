@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -21,39 +21,32 @@ import (
 )
 
 func init() { // nolint
-
 	logger, _ := zap.NewDevelopment()
-	// loads values from .env into the system
+
+	// Load (without arguments) loads values from .env into the system from current path
 	if err := godotenv.Load(); err != nil {
 		logger.Error("Error loading environment")
 	}
 }
 
 func main() {
-	fmt.Println("Let`s start calculate expressions!") //nolint
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can`t initialize zap logger: %v", err)
+	}
 
-	wg := &sync.WaitGroup{}
+	defer logger.Sync() //nolint
 
-	logger, _ := zap.NewDevelopment()
+	logger.Info("Let`s start calculate expressions!")
 
 	// Set new config form .env file
-	conf := NewConfig()
+	config := New()
+	length := config.expressionLength
+	workerPoolSize := config.workerPoolSize
 
-	// get expression length from config file
-	length, err := strconv.Atoi(conf.berCLI.expressionLength)
-	if err != nil {
-		logger.Error("failed to convert length of expression  to int type")
-	}
-
-	// get worker pool size from config file
-	workerPoolSize, err := strconv.Atoi(conf.berCLI.workerPoolSize)
-	if err != nil {
-		logger.Error("failed to convert worker pool size to int type")
-	}
-
+	wg := &sync.WaitGroup{}
 	wg.Add(workerPoolSize)
 
-	// create the dispatcher
 	d := dispatcher{
 		surveys: make(chan string, workerPoolSize),
 		jobs:    make(chan string, workerPoolSize),
@@ -67,15 +60,17 @@ func main() {
 	ctx, cancellation := context.WithCancel(context.Background())
 	go d.startDispatcher(ctx)
 
-	var url = conf.berCLI.url
+	var url = config.berCLI.url
 	for i := 0; i < workerPoolSize; i++ {
 		go d.surveyWorker(d.jobs, d.results, url, i, wg)
 	}
 
-	// read the results form results channels
 	for i := 0; i < workerPoolSize; i++ {
 		result := <-d.results
-		fmt.Printf("[worker #%v] Calculated result: %v\n\n", i, result) //nolint
+		logger.Info("reading results channel",
+			zap.Int("worker number", i),
+			zap.Int("calculated result", result),
+		)
 	}
 
 	// handle input signals (interrupt or terminate)
@@ -85,10 +80,10 @@ func main() {
 	<-termChan
 
 	// shutdown
-	fmt.Println("\nShutdown signal received") //nolint
+	logger.Info("Shutdown signal received from user!")
 	cancellation()
 	wg.Wait()
-	fmt.Println("All workers done their job, shutting down!") //nolint
+	logger.Info("All workers done their job, shutting down! Bye!")
 }
 
 // encodeMathOperators process math operators to utf-8 format.
@@ -185,7 +180,11 @@ func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string,
 				zap.String("url", request),
 				zap.Error(err))
 		}
-		fmt.Printf("[expression #%v] Generated survey: (%s);\n\n", id, job) //nolint
+
+		logger.Info("generating survey",
+			zap.Int("survey number", id),
+			zap.String("survey", job),
+		)
 		results <- rd.Result
 	}
 }
@@ -193,16 +192,19 @@ func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string,
 // startDispatcher acts as the proxy between the surveys and jobs channels,
 //  with a select to support graceful shutdown.
 func (d dispatcher) startDispatcher(ctx context.Context) {
+	logger, _ := zap.NewDevelopment()
+
 	for {
 		select {
 		case survey := <-d.surveys:
 			d.jobs <- survey
 		case <-ctx.Done():
-			fmt.Println("Dispatcher received cancellation signal, closing jobs channel") //nolint
+			logger.Info("Dispatcher received cancellation signal, closing jobs and surveys channels")
+
 			close(d.jobs)
 			close(d.surveys)
 
-			fmt.Println("Dispatcher closed jobs channel") ///nolint
+			logger.Info("Dispatcher closed jobs channel")
 
 			return
 		}
