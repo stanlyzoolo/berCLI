@@ -67,13 +67,14 @@ func main() {
 		go d.surveyWorker(d.jobs, d.results, url, i, wg)
 	}
 
-	for i := 0; i < workerPoolSize; i++ {
-		result := <-d.results
-		logger.Info("reading results channel",
-			zap.Int("worker number", i),
-			zap.Int("calculated result", result),
-		)
-	}
+	// Здесь не могу вычитать так, чтобы shutdown был graceful!
+	// for i := 0; i < workerPoolSize; i++ {
+	// 	result := <-d.results
+	// 	logger.Info("reading results channel",
+	// 		zap.Int("worker number", i),
+	// 		zap.Int("calculated result", result),
+	// 	)
+	// }
 
 	// handle input signals (interrupt or terminate)
 	termChan := make(chan os.Signal, 1)
@@ -182,7 +183,9 @@ func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string,
 				zap.String("url", request),
 				zap.Error(err))
 		}
-		time.Sleep(time.Millisecond * time.Duration(1000+rand.Intn(2000)))
+
+		time.Sleep(time.Millisecond * time.Duration(1000+rand.Intn(2000))) //nolint
+
 		logger.Info("generating survey",
 			zap.Int("survey number", id),
 			zap.String("survey", job),
