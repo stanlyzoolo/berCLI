@@ -2,23 +2,15 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io/ioutil"
 	"log"
-	"math/rand"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 	"unicode"
 
 	"github.com/joho/godotenv"
-	"github.com/stanlyzoolo/exprgen"
 	"go.uber.org/zap"
 )
 
@@ -97,111 +89,4 @@ func encodeMathOperators(expr string) string {
 	}
 
 	return expr
-}
-
-// returnData represents data with json tags for Marshal and  Unmarshal http response.
-type returnData struct {
-	Result int    `json:"result"`
-	Error  error  `json:"error"`
-	Expr   string `json:"expr"`
-}
-
-// unmarshalJSON is custom handler for writing error golang type to json struct field.
-func (rd *returnData) unmarshalJSON(b []byte) error {
-	type Alias returnData
-
-	aux := &struct {
-		Error string `json:"error"`
-		*Alias
-	}{
-		Alias: (*Alias)(rd),
-	}
-
-	if err := json.Unmarshal(b, &aux); err != nil {
-		return fmt.Errorf("unmarshal failed: %w", err)
-	}
-
-	rd.Error = errors.New(aux.Error) // nolint
-
-	return nil
-}
-
-// represents work with channels with data from external services (even exprgen).
-type dispatcher struct {
-	surveys chan string
-	jobs    chan string
-	results chan int
-}
-
-// surveyMaker creates expressions using input length and count with exprgen package.
-func (d dispatcher) surveyMaker(surveys chan string, length uint8) {
-	expression := exprgen.Generate(length)
-	surveys <- expression
-}
-
-// surveyWorker prepare and send request to restbasiccalc service using surveys from
-// jobs channel. Process http response and write result to results channel.
-func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string, id int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	for job := range jobs {
-		// Preparing the survey by replacing math operators to unicode format.
-		prepareExpr := encodeMathOperators(job)
-
-		// Preparing request expression to restbasiccalc service.
-		request := url + prepareExpr
-
-		data, err := http.Get(request) //nolint
-		logger, _ := zap.NewDevelopment()
-
-		if err != nil {
-			logger.Error("failed Get request\n",
-				zap.String("package", "berCLI"),
-				zap.String("400", "Bad Request"),
-				zap.String("url", url),
-				zap.Error(err))
-		}
-
-		// read the response.
-		response, _ := ioutil.ReadAll(data.Body)
-
-		var rd returnData
-
-		err = rd.unmarshalJSON(response)
-		if err != nil {
-			logger.Error("failed unmarshal json\n",
-				zap.String("package", "berCLI"),
-				zap.String("url", request),
-				zap.Error(err))
-		}
-
-		time.Sleep(time.Millisecond * time.Duration(1000+rand.Intn(2000))) //nolint
-
-		logger.Info("generating survey",
-			zap.Int("survey number", id),
-			zap.String("survey", job),
-			zap.Int("survey result", rd.Result),
-		)
-		results <- rd.Result
-	}
-}
-
-// startDispatcher acts as the proxy between the surveys and jobs channels,
-//  with a select to support graceful shutdown.
-func (d dispatcher) startDispatcher(ctx context.Context) {
-	logger, _ := zap.NewDevelopment()
-
-	for {
-		select {
-		case survey := <-d.surveys:
-			d.jobs <- survey
-		case <-ctx.Done():
-			logger.Info("*************************Dispatcher is closing jobs and surveys channels!***************************\n")
-			close(d.surveys)
-
-			close(d.jobs)
-
-			return
-		}
-	}
 }

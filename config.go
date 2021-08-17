@@ -5,20 +5,24 @@ import (
 	"strconv"
 )
 
+// NOTE: Зачем это?
 type berCLIConfig struct {
 	url string
 }
 
 type Config struct {
+	// TODO: url string //K.I.S.S.
 	berCLI           berCLIConfig
 	expressionLength int
 	workerPoolSize   int
 }
 
 // New returns a new Config struct.
+// NOTE: why pointer?
 func New() *Config {
 	return &Config{
 		berCLI: berCLIConfig{
+			// TODO: "CALCULATOR_URL"
 			url: getEnv("URL", "http://localhost:8080/?expr=")},
 		expressionLength: getEnvAsInt("ExpressionLength", 10),
 		workerPoolSize:   getEnvAsInt("WorkerPoolSize", 20),
