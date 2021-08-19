@@ -10,8 +10,9 @@ type berCLIConfig struct {
 	url string
 }
 
+//nolint //FIXME: need help!
 type Config struct {
-	// TODO: url string //K.I.S.S.
+	// TODO: url string //K.I.S.S.//nolint 
 	berCLI           berCLIConfig
 	expressionLength int
 	workerPoolSize   int
@@ -22,10 +23,9 @@ type Config struct {
 func New() *Config {
 	return &Config{
 		berCLI: berCLIConfig{
-			// TODO: "CALCULATOR_URL"
-			url: getEnv("URL", "http://localhost:8080/?expr=")},
-		expressionLength: getEnvAsInt("ExpressionLength", 10),
-		workerPoolSize:   getEnvAsInt("WorkerPoolSize", 20),
+			url: getEnv("CALCULATOR_URL", "http://localhost:8080/?expr=")},
+		expressionLength: getEnvAsInt("ExpressionLength", 10), //nolint //FIXME: need help!
+		workerPoolSize:   getEnvAsInt("WorkerPoolSize", 20),   //nolint //FIXME: need help!
 	}
 }
 

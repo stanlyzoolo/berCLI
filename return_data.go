@@ -28,7 +28,7 @@ func (rd *returnData) unmarshalJSON(b []byte) error {
 		return fmt.Errorf("unmarshal failed: %w", err)
 	}
 
-	rd.Error = errors.New(aux.Error) // nolint
+	rd.Error = errors.New(aux.Error) //nolint // FIXME: need help!
 
 	return nil
 }

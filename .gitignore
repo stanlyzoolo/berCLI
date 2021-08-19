@@ -4,3 +4,5 @@ berCLI
 .env
 # Ignore .golangci.yml
 .golangci.yml
+# files from GoLand
+.idea

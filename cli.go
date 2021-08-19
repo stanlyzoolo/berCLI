@@ -2,13 +2,10 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
-	"unicode"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -26,10 +23,11 @@ func init() { // nolint
 func main() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		log.Fatalf("can`t initialize zap logger: %v", err)
+		logger.Error("can`t initialize zap logger: ",
+			zap.Error(err))
 	}
 
-	defer logger.Sync() //nolint
+	defer logger.Sync() //nolint //FIXME: // Need help --> https://github.com/vmware-tanzu/octant/pull/263 !!!
 
 	logger.Info("Let`s start calculate expressions!\n")
 
@@ -70,23 +68,4 @@ func main() {
 	cancellation()
 	wg.Wait()
 	logger.Info("*************************All workers done their job, shutting down! Bye!****************************\n")
-}
-
-// encodeMathOperators process math operators to utf-8 format.
-func encodeMathOperators(expr string) string {
-	for _, e := range expr {
-		if e == '+' {
-			expr = strings.ReplaceAll(expr, string(e), "%2B")
-		}
-
-		if e == '-' {
-			expr = strings.ReplaceAll(expr, string(e), "%2D")
-		}
-
-		if unicode.IsSpace(e) {
-			expr = strings.ReplaceAll(expr, string(e), "%20")
-		}
-	}
-
-	return expr
 }

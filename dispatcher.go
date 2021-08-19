@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -27,33 +28,46 @@ func (d dispatcher) surveyMaker(surveys chan string, length uint8) {
 
 // surveyWorker prepare and send request to restbasiccalc service using surveys from
 // jobs channel. Process http response and write result to results channel.
-func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string, id int, wg *sync.WaitGroup) {
+func (d dispatcher) surveyWorker(jobs chan string, results chan int, baseURL string, id int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
+	logger, _ := zap.NewDevelopment()
+
 	for job := range jobs {
-		// TODO: NO!!!
-		// Preparing the survey by replacing math operators to unicode format.
-		prepareExpr := encodeMathOperators(job)
-
-		// TODO: BAD!!!
-		// Preparing request expression to restbasiccalc service.
-		request := url + prepareExpr
-
-		// TODO: BAD!!!
-		data, err := http.Get(request) //nolint
-		// TODO: BAD!!!
-		logger, _ := zap.NewDevelopment()
-
+		URL, err := url.Parse(baseURL)
 		if err != nil {
-			logger.Error("failed Get request\n",
-				zap.String("package", "berCLI"),
-				zap.String("400", "Bad Request"),
-				zap.String("url", url),
+			logger.Error("URL parsing failed",
 				zap.Error(err))
 		}
 
-		// read the response.
-		response, _ := ioutil.ReadAll(data.Body)
+		params := url.Values{}
+		params.Add("expr", job) // Может выделить expr в конфиг?
+
+		URL.RawQuery = params.Encode()
+
+		cli := &http.Client{} //nolint //FIXME: need help!
+		ctx := context.Background()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, URL.String(), nil)
+		if err != nil {
+			logger.Error("preparing the request failed\n",
+				zap.String("package", "berCLI"),
+				zap.String("url", URL.String()),
+				zap.Error(err))
+		}
+
+		resp, err := cli.Do(req)
+		if err != nil {
+			logger.Error("failed Get response\n",
+				zap.String("package", "berCLI"),
+				zap.String("400", "Bad Request"),
+				zap.String("url", URL.String()),
+				zap.Error(err))
+		}
+
+		defer resp.Body.Close() //nolint //FIXME: need help!
+
+		response, _ := ioutil.ReadAll(resp.Body)
 
 		var rd returnData
 
@@ -61,7 +75,7 @@ func (d dispatcher) surveyWorker(jobs chan string, results chan int, url string,
 		if err != nil {
 			logger.Error("failed unmarshal json\n",
 				zap.String("package", "berCLI"),
-				zap.String("url", request),
+				zap.String("url", URL.String()),
 				zap.Error(err))
 		}
 
